@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Jira MCP</title>
+<link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <h1>Jira MCP</h1>
+    <p class="subtitle">Jira Cloud — MCP Server</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle theme">☀</button>
+    <button class="btn-manifest" onclick="showManifest()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      View Tools
+    </button>
+    <button class="btn-setup" onclick="showModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      Setup Guide
+    </button>
+  </div>
+</div>
+
+<div class="layout">
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="card">
+      <div class="card-header">
+        <h2>Sites</h2>
+        <button class="btn-primary" onclick="openForm()">+ Add Site</button>
+      </div>
+      <div id="siteList"><div class="empty">No sites configured yet.<br/>Click <strong>+ Add Site</strong> to get started.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2><span class="log-dot" id="logDot"></span>MCP Activity Log</h2>
+        <button class="btn-ghost btn-sm" onclick="clearLog()">Clear</button>
+      </div>
+      <div id="logList" class="log-list"><div class="empty" style="padding:20px">No activity yet.</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="align-self:start">
+    <div class="card-header"><h2>Status</h2></div>
+    <div class="card-body" style="padding:16px 18px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="status-pill"><span class="status-dot" id="siteDot"></span><span id="siteLabel">0 sites</span></div>
+        <div class="status-pill"><span class="status-dot" id="clientDot"></span><span id="clientLabel">0 clients</span></div>
+      </div>
+      <div>
+        <div class="info-label">MCP Endpoint</div>
+        <div class="copyable"><code class="info-code" id="infoEndpoint"></code><button class="copy-btn" onclick="copyEl('infoEndpoint')">Copy</button></div>
+      </div>
+      <div>
+        <div class="info-label">Codex</div>
+        <div class="copyable"><code class="info-code" id="infoCodexCmd"></code><button class="copy-btn" onclick="copyEl('infoCodexCmd')">Copy</button></div>
+      </div>
+      <div>
+        <div class="info-label">Claude Code</div>
+        <div class="copyable"><code class="info-code" id="infoClaudeCmd"></code><button class="copy-btn" onclick="copyEl('infoClaudeCmd')">Copy</button></div>
+      </div>
+      <div>
+        <div class="info-label">Other MCP Clients (Streamable HTTP)</div>
+        <div class="copyable"><pre class="info-pre" id="infoJson"></pre><button class="copy-btn" onclick="copyEl('infoJson')">Copy</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit site modal -->
+<div class="modal-overlay" id="formOverlay" onclick="closeFormModal(event)">
+  <div class="modal modal-form">
+    <button class="modal-close" onclick="closeForm()">✕</button>
+    <div class="modal-header">
+      <div class="modal-logo" id="formTitle">Add Site</div>
+      <p class="modal-subtitle">Connect a Jira Cloud site</p>
+    </div>
+    <input type="hidden" id="editId"/>
+
+    <label>Site URL <span class="required">*</span></label>
+    <input type="url" id="fUrl" placeholder="https://your-org.atlassian.net"/>
+    <div class="field-error" id="errUrl"></div>
+
+    <label>Name <span class="required">*</span></label>
+    <input type="text" id="fName" placeholder="e.g. My Org Jira"/>
+    <div class="field-error" id="errName"></div>
+
+    <label>Atlassian Account Email <span class="required">*</span></label>
+    <input type="email" id="fUser" placeholder="you@example.com"/>
+    <div class="section-hint">Use your <strong>Atlassian account email</strong> — the same one you log into Jira with.</div>
+    <div class="field-error" id="errUser"></div>
+
+    <label>API Token <span class="required">*</span></label>
+    <div class="input-wrap">
+      <input type="password" id="fToken" placeholder="••••••••••••••••"/>
+      <button type="button" class="eye-btn" onclick="toggleTokenVisibility()" title="Show/hide token">
+        <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <svg id="eyeOffIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      </button>
+    </div>
+    <div class="section-hint">Create an API token at <strong>id.atlassian.com</strong> → Security → API tokens. When editing, leave this blank to keep the saved token.</div>
+    <div class="field-error" id="errToken"></div>
+
+    <div id="connTestStatus" style="display:none;margin-top:10px"></div>
+    <div class="form-actions">
+      <button class="btn-del btn-sm" id="btnDelete" onclick="deleteCurrentSite()" style="display:none;margin-right:auto">Delete</button>
+      <button class="btn-ghost" onclick="closeForm()">Cancel</button>
+      <button class="btn-ghost btn-sm" onclick="testConn()" style="flex:0">Test</button>
+      <button class="btn-primary" id="btnSave" onclick="saveSite()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Setup modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="dismissModal()">✕</button>
+    <div class="modal-header">
+      <div class="modal-logo">Jira MCP</div>
+      <p class="modal-subtitle">Jira Cloud — MCP Server</p>
+    </div>
+    <div class="modal-steps">
+      <div class="modal-step done">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Server is running</div>
+          <div class="step-desc">Jira MCP is up and listening for connections.</div>
+        </div>
+      </div>
+      <div class="modal-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Connect your MCP client</div>
+          <div class="step-desc">Register with Codex (Streamable HTTP):</div>
+          <code class="modal-code" id="modalCodexCmd"></code>
+          <div class="step-desc" style="margin-top:12px">Or register with Claude Code (legacy SSE):</div>
+          <code class="modal-code" id="modalClaudeCmd"></code>
+          <div class="step-desc" style="margin-top:12px">For other Streamable HTTP clients:</div>
+          <pre class="modal-pre" id="modalJson"></pre>
+        </div>
+      </div>
+      <div class="modal-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Add a Jira site</div>
+          <div class="step-desc">Connect your Jira Cloud site using your Atlassian account email and an API token from id.atlassian.com.</div>
+          <button class="btn-primary btn-sm" style="margin-top:10px" onclick="dismissModal();openForm()">+ Add Site</button>
+        </div>
+      </div>
+    </div>
+    <button class="modal-dismiss" onclick="dismissModal()">Got it, don't show again</button>
+  </div>
+</div>
+
+<!-- Manifest modal -->
+<div class="modal-overlay" id="manifestOverlay" onclick="closeManifestModal(event)">
+  <div class="modal modal-manifest">
+    <button class="modal-close" onclick="closeManifest()">✕</button>
+    <div class="modal-header" style="margin-bottom:20px">
+      <div class="modal-logo">Jira MCP</div>
+      <p class="modal-subtitle">Available MCP Tools</p>
+    </div>
+    <div id="manifestTools"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
