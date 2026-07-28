@@ -1,6 +1,10 @@
 // Jira Cloud REST API v3 client
 // Auth: Basic (Atlassian account email + API token from id.atlassian.com)
 
+import { mkdir, open, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
@@ -165,6 +169,76 @@ export async function readAttachment(site, id) {
   const mimeType = res.headers.get('content-type') || 'application/octet-stream';
   const buf = Buffer.concat(chunks, total);
   return { mimeType, base64: buf.toString('base64'), size: buf.length };
+}
+
+// Parse the filename from a Content-Disposition header, preferring RFC 5987 filename*.
+function filenameFromContentDisposition(header) {
+  if (!header) return null;
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header);
+  if (star) {
+    try { return decodeURIComponent(star[1].trim().replace(/^"|"$/g, '')); } catch { /* fall through */ }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(header);
+  return plain ? plain[1].trim() : null;
+}
+
+// Keep only a safe basename so a server-supplied filename can never escape the target directory.
+function safeBasename(name, fallback) {
+  const base = basename(String(name || '').replace(/\\/g, '/'));
+  const cleaned = base.replace(/[/\0]/g, '').trim();
+  return cleaned && cleaned !== '.' && cleaned !== '..' ? cleaned : fallback;
+}
+
+// Stream a Jira attachment to a local file and return its absolute path (plus metadata).
+// destPath: exact output file (absolute, or resolved from cwd). destDir: directory to place the
+// attachment's own filename in. When neither is given, files land in os.tmpdir()/jira-mcp-attachments.
+export async function downloadAttachment(site, id, { destPath, destDir } = {}) {
+  const url = `${BASE(site.siteUrl)}/attachment/content/${encodeURIComponent(id)}`;
+  const res = await fetch(url, {
+    headers: { ...makeHeaders(site), 'Accept': '*/*' },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const msgs = data?.errorMessages?.length ? data.errorMessages.join('; ')
+      : data?.message || `HTTP ${res.status} ${res.statusText}`;
+    throw new Error(msgs);
+  }
+  const declaredSize = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declaredSize) && declaredSize > MAX_ATTACHMENT_BYTES) {
+    throw new Error(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES}-byte download limit.`);
+  }
+  if (!res.body) throw new Error('Attachment response did not contain a body.');
+
+  const mimeType = res.headers.get('content-type') || 'application/octet-stream';
+  const filename = safeBasename(filenameFromContentDisposition(res.headers.get('content-disposition')), `attachment-${id}`);
+  const outPath = destPath
+    ? (isAbsolute(destPath) ? destPath : resolve(destPath))
+    : join(destDir ? (isAbsolute(destDir) ? destDir : resolve(destDir)) : join(tmpdir(), 'jira-mcp-attachments'), filename);
+
+  await mkdir(dirname(outPath), { recursive: true });
+  const fh = await open(outPath, 'w');
+  const reader = res.body.getReader();
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_ATTACHMENT_BYTES) {
+        await reader.cancel();
+        throw new Error(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES}-byte download limit.`);
+      }
+      await fh.write(Buffer.from(value));
+    }
+  } catch (e) {
+    await fh.close();
+    await rm(outPath, { force: true }).catch(() => {});
+    throw e;
+  }
+  await fh.close();
+  return { path: outPath, mimeType, size: total, filename };
 }
 
 // Recursively collect media/file attachment IDs referenced inside an ADF comment body.

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `download_attachment` tool: streams an attachment to a local file and returns its path, so clients can open or parse spreadsheets, PDFs, and documents directly instead of decoding base64
+- `attachment_to_markdown` tool: converts an attachment (xlsx, docx, pptx, PDF, HTML, CSV, and more) to Markdown via Microsoft markitdown, with `uvx markitdown` fallback
+
 ## [1.0.0] - 2026-07-17
 
 ### Added

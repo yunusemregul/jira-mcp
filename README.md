@@ -26,6 +26,7 @@ Jira access uses an Atlassian account email and API token. Credentials stay on y
 - Node.js 22.14 or newer
 - A Jira Cloud site
 - An Atlassian account email and API token from [Atlassian account security](https://id.atlassian.com/manage-profile/security/api-tokens)
+- Optional: [Microsoft markitdown](https://github.com/microsoft/markitdown) for the `attachment_to_markdown` tool (`pip install "markitdown[all]"`, or have `uvx` on PATH to run it on demand)
 
 ## Installation
 
@@ -103,6 +104,8 @@ Some MCP clients require OAuth discovery even for a local server. Jira MCP expos
 | `update_comment` | Replace an existing comment |
 | `get_attachments` | List issue attachments and referenced media IDs |
 | `read_attachment` | Read a bounded attachment; images are returned inline |
+| `download_attachment` | Download an attachment to a local file and return its path for direct parsing |
+| `attachment_to_markdown` | Convert an attachment (xlsx, docx, pptx, PDF, HTML, CSV…) to Markdown via Microsoft markitdown |
 | `get_transitions` | List available status transitions |
 | `transition_issue` | Transition an issue, optionally with a comment |
 
@@ -115,8 +118,11 @@ The CLI accepts these optional environment variables:
 | `HOST` | `127.0.0.1` | HTTP bind host |
 | `PORT` | `18433` | HTTP port |
 | `JIRA_REQUEST_TIMEOUT_MS` | `30000` | Jira HTTP request timeout |
-| `JIRA_MAX_ATTACHMENT_BYTES` | `20971520` | Maximum attachment download size |
+| `JIRA_MAX_ATTACHMENT_BYTES` | `20971520` | Maximum attachment download size (applies to `read_attachment` and `download_attachment`) |
 | `JIRA_MCP_DATA_DIR` | `~/.jira-mcp` | Config directory; primarily useful for tests/isolated runs |
+| `JIRA_MARKITDOWN_CMD` | `markitdown` (falls back to `uvx markitdown`) | Command used by `attachment_to_markdown` |
+| `JIRA_MARKITDOWN_TIMEOUT_MS` | `120000` | `attachment_to_markdown` conversion timeout |
+| `JIRA_MARKITDOWN_MAX_CHARS` | `200000` | Max Markdown characters returned by `attachment_to_markdown` |
 
 ## Security
 
