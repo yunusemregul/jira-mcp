@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-29
+
 ### Changed
 
 - `attachment_to_markdown` now distinguishes a missing converter from a failing one: unusable commands (`ENOENT`, `EACCES`, `EPERM`, `ENOTDIR`) fall through to the next candidate, while errors from markitdown itself surface immediately with its stderr
