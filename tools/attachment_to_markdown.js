@@ -13,11 +13,22 @@ const MAX_OUTPUT_CHARS = Number(process.env.JIRA_MARKITDOWN_MAX_CHARS) || 200_00
 
 // Candidate commands for Microsoft markitdown, most direct first. JIRA_MARKITDOWN_CMD overrides the
 // list with a single whitespace-separated command (e.g. "uvx markitdown" or "/path/to/markitdown").
-function converterCandidates() {
+export function converterCandidates() {
   const override = (process.env.JIRA_MARKITDOWN_CMD || '').trim();
   if (override) return [override.split(/\s+/)];
   return [['markitdown'], ['uvx', 'markitdown']];
 }
+
+// Spawn failures meaning "this command is not usable here" rather than "markitdown ran and failed".
+const NOT_RUNNABLE = new Set(['ENOENT', 'EACCES', 'EPERM', 'ENOTDIR']);
+
+export const INSTALL_HINT = [
+  'Install it on the machine running this server, either:',
+  '  pip install "markitdown[all]"   (puts "markitdown" on PATH)',
+  '  uv, so "uvx markitdown" can fetch it on demand',
+  'Or set JIRA_MARKITDOWN_CMD to an existing install, e.g. JIRA_MARKITDOWN_CMD="/opt/venv/bin/markitdown".',
+  'This affects only attachment_to_markdown; every other tool works without it.',
+].join('\n');
 
 function runConverter([cmd, ...baseArgs], filePath) {
   return new Promise((resolvePromise, reject) => {
@@ -36,20 +47,28 @@ function runConverter([cmd, ...baseArgs], filePath) {
   });
 }
 
-async function convertToMarkdown(filePath) {
-  const candidates = converterCandidates();
-  for (const candidate of candidates) {
+export async function convertToMarkdown(filePath) {
+  const attempts = [];
+  for (const candidate of converterCandidates()) {
+    const label = candidate.join(' ');
     try {
       return await runConverter(candidate, filePath);
     } catch (e) {
-      // ENOENT means this command is not installed; try the next candidate. Any other failure is a
-      // real conversion error and should surface immediately.
-      if (e.code === 'ENOENT') continue;
+      // A command that could not be started at all just means this candidate is not installed here,
+      // so fall through to the next one. Anything else came out of markitdown itself and is a real
+      // conversion failure that retrying with another candidate cannot fix.
+      if (NOT_RUNNABLE.has(e.code)) {
+        attempts.push(`"${label}" (${e.code})`);
+        continue;
+      }
+      if (e.killed) {
+        throw new Error(`markitdown ("${label}") timed out after ${CONVERT_TIMEOUT_MS}ms. Raise JIRA_MARKITDOWN_TIMEOUT_MS if this attachment is large.`, { cause: e });
+      }
       const detail = (e.stderr || e.message || '').trim();
-      throw new Error(`markitdown conversion failed: ${detail || e.code || 'unknown error'}`, { cause: e });
+      throw new Error(`markitdown ("${label}") failed to convert this attachment: ${detail || e.code || 'unknown error'}`, { cause: e });
     }
   }
-  throw new Error(`markitdown is not available (tried: ${candidates.map(c => c.join(' ')).join(', ')}). Install it with "pip install markitdown[all]", ensure "uvx" is on PATH, or set JIRA_MARKITDOWN_CMD.`);
+  throw new Error(`markitdown is not available — tried ${attempts.join(', ')}.\n\n${INSTALL_HINT}`);
 }
 
 export const tool = {

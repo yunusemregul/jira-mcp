@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- `attachment_to_markdown` now distinguishes a missing converter from a failing one: unusable commands (`ENOENT`, `EACCES`, `EPERM`, `ENOTDIR`) fall through to the next candidate, while errors from markitdown itself surface immediately with its stderr
+- A conversion that hits `JIRA_MARKITDOWN_TIMEOUT_MS` now reports the timeout and the setting to raise, instead of an opaque failure
+- The "markitdown is not available" error now lists every command tried and how to install it, and notes that no other tool is affected
+- Documented markitdown as an optional dependency in the README and `.env.example`, including the `JIRA_MARKITDOWN_*` settings
+
 ## [1.1.0] - 2026-07-29
 
 ### Added

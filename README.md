@@ -26,7 +26,24 @@ Jira access uses an Atlassian account email and API token. Credentials stay on y
 - Node.js 22.14 or newer
 - A Jira Cloud site
 - An Atlassian account email and API token from [Atlassian account security](https://id.atlassian.com/manage-profile/security/api-tokens)
-- Optional: [Microsoft markitdown](https://github.com/microsoft/markitdown) for the `attachment_to_markdown` tool (`pip install "markitdown[all]"`, or have `uvx` on PATH to run it on demand)
+- Optional: [Microsoft markitdown](https://github.com/microsoft/markitdown) for the `attachment_to_markdown` tool
+
+### Optional: markitdown
+
+`attachment_to_markdown` is the one tool that shells out to an external program — [markitdown](https://github.com/microsoft/markitdown), a Python tool. Install it either way:
+
+```bash
+pip install "markitdown[all]"   # puts "markitdown" on PATH
+# or install uv, and "uvx markitdown" is fetched on demand
+```
+
+Already have it in a virtualenv? Point at it directly instead:
+
+```bash
+JIRA_MARKITDOWN_CMD="/opt/venv/bin/markitdown"
+```
+
+If none of these are present, `attachment_to_markdown` returns an error naming each command it tried and how to install it. **Nothing else is affected** — the server starts normally and every other tool, including `download_attachment`, works with no Python installed.
 
 ## Installation
 
