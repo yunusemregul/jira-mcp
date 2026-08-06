@@ -123,6 +123,7 @@ Some MCP clients require OAuth discovery even for a local server. Jira MCP expos
 | `read_attachment` | Read a bounded attachment; images are returned inline |
 | `download_attachment` | Download an attachment to a local file and return its path for direct parsing |
 | `attachment_to_markdown` | Convert an attachment (xlsx, docx, pptx, PDF, HTML, CSV…) to Markdown via Microsoft markitdown |
+| `upload_attachment` | Upload local files (screenshots, logs, documents) as issue attachments |
 | `get_transitions` | List available status transitions |
 | `transition_issue` | Transition an issue, optionally with a comment |
 

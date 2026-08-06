@@ -12,6 +12,7 @@ import { tool as getAttachments } from './get_attachments.js';
 import { tool as readAttachment } from './read_attachment.js';
 import { tool as downloadAttachment } from './download_attachment.js';
 import { tool as attachmentToMarkdown } from './attachment_to_markdown.js';
+import { tool as uploadAttachment } from './upload_attachment.js';
 import { tool as getTransitions } from './get_transitions.js';
 import { tool as transitionIssue } from './transition_issue.js';
 import { tool as getProjects } from './get_projects.js';
@@ -31,6 +32,7 @@ export const tools = [
   readAttachment,
   downloadAttachment,
   attachmentToMarkdown,
+  uploadAttachment,
   getTransitions,
   transitionIssue,
   getProjects,

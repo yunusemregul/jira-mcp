@@ -50,10 +50,11 @@ test('server is loopback-only, redacts secrets, supports OAuth discovery and ser
   const client = new Client({ name: 'test-client', version: '1.0.0' });
   await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`)));
   const tools = await client.listTools();
-  assert.equal(tools.tools.length, 16);
+  assert.equal(tools.tools.length, 17);
   assert.ok(tools.tools.some(tool => tool.name === 'search_issues'));
   assert.ok(tools.tools.some(tool => tool.name === 'download_attachment'));
   assert.ok(tools.tools.some(tool => tool.name === 'attachment_to_markdown'));
+  assert.ok(tools.tools.some(tool => tool.name === 'upload_attachment'));
   await client.close();
 });
 

@@ -1,7 +1,7 @@
 // Jira Cloud REST API v3 client
 // Auth: Basic (Atlassian account email + API token from id.atlassian.com)
 
-import { mkdir, open, rm } from 'node:fs/promises';
+import { mkdir, open, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 
@@ -239,6 +239,43 @@ export async function downloadAttachment(site, id, { destPath, destDir } = {}) {
   }
   await fh.close();
   return { path: outPath, mimeType, size: total, filename };
+}
+
+// Upload one or more local files as attachments on an issue. Jira requires the multipart field
+// name "file" and the X-Atlassian-Token: no-check header; Content-Type must be left to fetch so
+// the multipart boundary is generated correctly.
+export async function uploadAttachments(site, key, filePaths) {
+  const paths = (Array.isArray(filePaths) ? filePaths : [filePaths]).map(p => String(p));
+  if (paths.length === 0) throw new Error('At least one file path is required.');
+
+  const form = new FormData();
+  for (const p of paths) {
+    const abs = isAbsolute(p) ? p : resolve(p);
+    const info = await stat(abs).catch(() => null);
+    if (!info) throw new Error(`File not found: ${abs}`);
+    if (!info.isFile()) throw new Error(`Not a file: ${abs}`);
+    if (info.size > MAX_ATTACHMENT_BYTES) {
+      throw new Error(`${basename(abs)} exceeds the ${MAX_ATTACHMENT_BYTES}-byte upload limit.`);
+    }
+    const buf = await readFile(abs);
+    form.append('file', new Blob([buf]), basename(abs));
+  }
+
+  const { 'Content-Type': _ignored, ...headers } = makeHeaders(site);
+  const url = `${BASE(site.siteUrl)}/issue/${encodeURIComponent(key)}/attachments`;
+  const res = await fetch(url, {
+    method: 'POST',
+    body: form,
+    headers: { ...headers, 'X-Atlassian-Token': 'no-check' },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msgs = data?.errorMessages?.length ? data.errorMessages.join('; ')
+      : data?.message || `HTTP ${res.status} ${res.statusText}`;
+    throw new Error(msgs);
+  }
+  return Array.isArray(data) ? data : [];
 }
 
 // Recursively collect media/file attachment IDs referenced inside an ADF comment body.
